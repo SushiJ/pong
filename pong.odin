@@ -7,13 +7,16 @@ import "core:math/rand"
 import rl "vendor:raylib"
 
 Game_State :: struct {
-	window_size:  rl.Vector2,
-	paddle:       rl.Rectangle,
-	ai_paddle:    rl.Rectangle,
-	paddle_speed: f32,
-	ball:         rl.Rectangle,
-	ball_dir:     rl.Vector2,
-	ball_speed:   f32,
+	window_size:       rl.Vector2,
+	paddle:            rl.Rectangle,
+	ai_paddle:         rl.Rectangle,
+	ai_target_y:       f32,
+	ai_reaction_delay: f32,
+	ai_reaction_timer: f32,
+	paddle_speed:      f32,
+	ball:              rl.Rectangle,
+	ball_dir:          rl.Vector2,
+	ball_speed:        f32,
 }
 
 ball_dir_calculate :: proc(ball: rl.Rectangle, paddle: rl.Rectangle) -> (rl.Vector2, bool) {
@@ -33,6 +36,7 @@ main :: proc() {
 		window_size = {640, 480},
 		paddle = {width = 30, height = 80},
 		ai_paddle = {width = 30, height = 80},
+		ai_reaction_delay = 0.1,
 		paddle_speed = 10,
 		ball = {width = 30, height = 30},
 		ball_dir = {0, -1},
@@ -45,6 +49,22 @@ main :: proc() {
 	rl.InitWindow(i32(window_size.x), i32(window_size.y), "Pong")
 	rl.SetTargetFPS(60)
 
+	ai_reaction_timer += rl.GetFrameTime()
+
+	if ai_reaction_timer >= ai_reaction_delay {
+		ai_reaction_timer = 0
+		ball_mid := ball.y + ball.height / 2
+		if ball_dir.x < 0 {
+			ai_target_y = ball_mid - ai_paddle.height / 2
+			ai_target_y += rand.float32_range(-20, 20)
+		} else {
+			ai_target_y = window_size.y / 2 - ai_paddle.height / 2
+		}
+	}
+
+	target_diff := ai_target_y - ai_paddle.y
+	ai_paddle.y += linalg.clamp(target_diff, -paddle_speed, paddle_speed) * 0.65
+	ai_paddle.y = linalg.clamp(ai_paddle.y, 0, window_size.y - ai_paddle.height)
 
 	for !rl.WindowShouldClose() {
 

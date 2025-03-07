@@ -17,6 +17,8 @@ Game_State :: struct {
 	ball:              rl.Rectangle,
 	ball_dir:          rl.Vector2,
 	ball_speed:        f32,
+	score_player:      int,
+	score_ai:          int,
 }
 
 ball_dir_calculate :: proc(ball: rl.Rectangle, paddle: rl.Rectangle) -> (rl.Vector2, bool) {
@@ -42,6 +44,8 @@ main :: proc() {
 		ball = {width = 30, height = 30},
 		ball_dir = {0, -1},
 		ball_speed = 10,
+		score_player = 0,
+		score_ai = 0,
 	}
 
 	reset(&gs)
@@ -49,6 +53,12 @@ main :: proc() {
 	using gs
 	rl.InitWindow(i32(window_size.x), i32(window_size.y), "Pong")
 	rl.SetTargetFPS(60)
+	rl.InitAudioDevice()
+	defer rl.CloseAudioDevice()
+
+	sfx_hit := rl.LoadSound("assets/hit.wav")
+	sfx_lose := rl.LoadSound("assets/lose.wav")
+	sfx_win := rl.LoadSound("assets/win.wav")
 
 	ai_reaction_timer += rl.GetFrameTime()
 
@@ -71,10 +81,10 @@ main :: proc() {
 
 	for !rl.WindowShouldClose() {
 
-		if rl.IsKeyDown(.UP) || rl.IsKeyDown(.J) {
+		if rl.IsKeyDown(.UP) || rl.IsKeyDown(.K) {
 			paddle.y -= paddle_speed
 		}
-		if rl.IsKeyDown(.DOWN) || rl.IsKeyDown(.K) {
+		if rl.IsKeyDown(.DOWN) || rl.IsKeyDown(.J) {
 			paddle.y += paddle_speed
 		}
 
@@ -99,25 +109,46 @@ main :: proc() {
 		}
 
 		if next_ball_rec.x >= window_size.x - ball.width {
+			score_ai += 1
+			rl.PlaySound(sfx_lose)
 			reset(&gs)
 		}
 
 		if next_ball_rec.x <= 0 {
+			score_player += 1
+			rl.PlaySound(sfx_win)
 			reset(&gs)
 		}
 
+		last_ball_dir := ball_dir
+
 		ball_dir = ball_dir_calculate(next_ball_rec, paddle) or_else ball_dir
+		if last_ball_dir != ball_dir {
+			rl.PlaySound(sfx_hit)
+		}
 		ball_dir = ball_dir_calculate(next_ball_rec, ai_paddle) or_else ball_dir
+
+		if last_ball_dir != ball_dir {
+			rl.PlaySound(sfx_hit)
+		}
 
 		ball.y += ball_speed * ball_dir.y
 		ball.x += ball_speed * ball_dir.x
 
 		rl.BeginDrawing()
+
+
 		rl.DrawRectangleRec(paddle, rl.WHITE)
 		rl.DrawRectangleRec(ai_paddle, rl.WHITE)
 		rl.DrawRectangleRec(ball, rl.RED)
 		rl.ClearBackground(rl.BLACK)
+
+		rl.DrawText(fmt.ctprintf("{}", score_ai), 12, 12, 32, rl.WHITE)
+		rl.DrawText(fmt.ctprintf("{}", score_player), i32(window_size.x) - 28, 12, 32, rl.WHITE)
+
 		rl.EndDrawing()
+		// Free cstring temp memory
+		free_all(context.temp_allocator)
 	}
 }
 

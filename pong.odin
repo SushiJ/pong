@@ -19,6 +19,7 @@ Game_State :: struct {
 	ball_speed:        f32,
 	score_player:      int,
 	score_ai:          int,
+	boost_timer:       f32,
 }
 
 ball_dir_calculate :: proc(ball: rl.Rectangle, paddle: rl.Rectangle) -> (rl.Vector2, bool) {
@@ -46,6 +47,7 @@ main :: proc() {
 		ball_speed = 10,
 		score_player = 0,
 		score_ai = 0,
+		boost_timer = 0.00,
 	}
 
 	reset(&gs)
@@ -80,6 +82,16 @@ main :: proc() {
 	ai_paddle.y = linalg.clamp(ai_paddle.y, 0, window_size.y - ai_paddle.height)
 
 	for !rl.WindowShouldClose() {
+		delta := rl.GetFrameTime()
+		boost_timer -= delta
+
+		ai_reaction_timer += delta
+
+		if rl.IsKeyDown(.SPACE) {
+			if boost_timer < 0 {
+				boost_timer = 0.2
+			}
+		}
 
 		if rl.IsKeyDown(.UP) || rl.IsKeyDown(.K) {
 			paddle.y -= paddle_speed
@@ -122,10 +134,19 @@ main :: proc() {
 
 		last_ball_dir := ball_dir
 
-		ball_dir = ball_dir_calculate(next_ball_rec, paddle) or_else ball_dir
+		new_dir, did_hit := ball_dir_calculate(next_ball_rec, paddle)
+		if did_hit {
+			if boost_timer > 0 {
+				d := 1 + boost_timer / 0.2
+				new_dir *= d
+			}
+			ball_dir = new_dir
+		}
+
 		if last_ball_dir != ball_dir {
 			rl.PlaySound(sfx_hit)
 		}
+
 		ball_dir = ball_dir_calculate(next_ball_rec, ai_paddle) or_else ball_dir
 
 		if last_ball_dir != ball_dir {
@@ -138,9 +159,14 @@ main :: proc() {
 		rl.BeginDrawing()
 
 
-		rl.DrawRectangleRec(paddle, rl.WHITE)
+		if boost_timer > 0 {
+			rl.DrawRectangleRec(paddle, {u8(255 * (0.2 / boost_timer)), 255, 255, 255})
+		} else {
+			rl.DrawRectangleRec(paddle, rl.WHITE)
+		}
+
 		rl.DrawRectangleRec(ai_paddle, rl.WHITE)
-		rl.DrawRectangleRec(ball, rl.RED)
+		rl.DrawRectangleRec(ball, {255, u8(255 - 255 / linalg.length(ball_dir)), 0, 255})
 		rl.ClearBackground(rl.BLACK)
 
 		rl.DrawText(fmt.ctprintf("{}", score_ai), 12, 12, 32, rl.WHITE)

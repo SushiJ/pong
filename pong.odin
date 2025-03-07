@@ -23,7 +23,8 @@ ball_dir_calculate :: proc(ball: rl.Rectangle, paddle: rl.Rectangle) -> (rl.Vect
 	if rl.CheckCollisionRecs(ball, paddle) {
 		ball_center := rl.Vector2{ball.x + ball.width / 2, ball.y + ball.height / 2}
 		paddle_center := rl.Vector2{paddle.x + paddle.width / 2, paddle.y + paddle.height / 2}
-		return linalg.normalize0(ball_center - paddle_center), true
+		normalized := linalg.normalize0(ball_center - paddle_center)
+		return normalized, true
 	}
 	return {}, false
 }
@@ -33,7 +34,7 @@ main :: proc() {
 	HEIGHT :: 480
 
 	gs := Game_State {
-		window_size = {640, 480},
+		window_size = {WIDTH, HEIGHT},
 		paddle = {width = 30, height = 80},
 		ai_paddle = {width = 30, height = 80},
 		ai_reaction_delay = 0.1,
@@ -56,6 +57,8 @@ main :: proc() {
 		ball_mid := ball.y + ball.height / 2
 		if ball_dir.x < 0 {
 			ai_target_y = ball_mid - ai_paddle.height / 2
+
+			// add or subtract 0-20 to add inaccuracy
 			ai_target_y += rand.float32_range(-20, 20)
 		} else {
 			ai_target_y = window_size.y / 2 - ai_paddle.height / 2
@@ -68,14 +71,15 @@ main :: proc() {
 
 	for !rl.WindowShouldClose() {
 
-		if rl.IsKeyDown(.UP) || rl.IsKeyDown(.W) {
+		if rl.IsKeyDown(.UP) || rl.IsKeyDown(.J) {
 			paddle.y -= paddle_speed
 		}
-		if rl.IsKeyDown(.DOWN) || rl.IsKeyDown(.S) {
+		if rl.IsKeyDown(.DOWN) || rl.IsKeyDown(.K) {
 			paddle.y += paddle_speed
 		}
 
 		paddle.y = linalg.clamp(paddle.y, 0, window_size.y - paddle.height)
+
 		diff := ai_paddle.y + ai_paddle.height / 2 - ball.y + ball.height / 2
 		if diff < 0 {
 			ai_paddle.y += paddle_speed * 0.5
@@ -95,12 +99,10 @@ main :: proc() {
 		}
 
 		if next_ball_rec.x >= window_size.x - ball.width {
-			// ball_dir.x *= -1
 			reset(&gs)
 		}
 
 		if next_ball_rec.x <= 0 {
-			// ball_dir.x *= -1
 			reset(&gs)
 		}
 
@@ -120,7 +122,7 @@ main :: proc() {
 }
 
 reset :: proc(gs: ^Game_State) {
-	angle := rand.float32_range(-45, 46) // (] inc, exclusive
+	angle := rand.float32_range(-45, 46) // [) inc, exclusive
 	if rand.int_max(100) % 2 == 0 do angle += 180
 	r := math.to_radians(angle)
 
